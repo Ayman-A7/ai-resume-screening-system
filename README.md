@@ -60,22 +60,23 @@ Automates repetitive HR screening tasks and helps recruiters identify strong can
 
 ### Workflow
 
-![Workflow][screenshots/workflow.png]
+![Workflow](screenshots/workflow.png)
+
 ### Resume Upload Form
 
-![Form][screenshots/form.png]
+![Form](screenshots/form.png)
 
 ### Airtable
 
-![Airtable][screenshots/airtable.png
+![Airtable](screenshots/airtable.png)
 
 ### Slack
 
-![Slack][screenshots/slack.png]
+![Slack](screenshots/slack.png)
 
 ### Gmail
 
-![Gmail][screenshots/gmail.png]
+![Gmail](screenshots/gmail.png)
 
 ---
 
