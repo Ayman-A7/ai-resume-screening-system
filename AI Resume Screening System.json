@@ -1,0 +1,788 @@
+{
+  "name": "AI Resume Screening System",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "AI Resume Screening System",
+        "formDescription": "Upload your resume to receive an AI-powered evaluation of your skills and experience.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Full Name",
+              "placeholder": "John Smith"
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "placeholder": "johnsmith@gmail.com"
+            },
+            {
+              "fieldLabel": "Job Position",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "AI Automation Engineer"
+                  },
+                  {
+                    "option": "n8n Developer"
+                  },
+                  {
+                    "option": "AI Engineer"
+                  },
+                  {
+                    "option": "Software Engineer"
+                  },
+                  {
+                    "option": "Android Developer"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Resume",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": "PDF"
+            }
+          ]
+        },
+        "options": {
+          "buttonLabel": "Submit Application"
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        128
+      ],
+      "id": "64ca453d-e7b0-4170-861e-7cfccc4e44c4",
+      "name": "On form submission",
+      "webhookId": "7ac8b9b0-874e-4da3-bea9-4012abb2aade"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "Resume",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        128
+      ],
+      "id": "c0ea42b7-5dda-4b3a-abc0-593e2ca0d1cb",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a senior HR recruiter with expertise in hiring for technical roles.\n\nYour task is to evaluate the candidate ONLY for the selected job position.\n\nJob Position:\n{{ $('On form submission').item.json['Job Position'] }}\n\nResume:\n\n{{ $json.text }}\n\nEvaluate the candidate based on:\n- Relevant technical skills\n- Years of relevant experience\n- Education\n- Projects\n- Certifications\n- Communication skills\n- Transferable skills\n\nReturn ONLY valid JSON in this format:\n\n{\n  \"name\": \"\",\n  \"email\": \"\",\n  \"phone\": \"\",\n  \"skills\": [],\n  \"experience_years\": 0,\n  \"education\": \"\",\n  \"technical_projects\": [],\n  \"strengths\": \"\",\n  \"weaknesses\": \"\",\n  \"score\": 0,\n  \"recommendation\": \"\",\n \"interview_questions\": [\n    \"Explain an n8n workflow you have built.\",\n    \"Describe how you integrated an AI model into an automation.\",\n    \"How would you handle errors in an automation workflow?\"\n  ]\n  \"summary\": \"\"\n}\n\nScoring Guide:\n90-100 = Excellent fit\n80-89 = Strong fit\n70-79 = Good fit\n60-69 = Average fit\nBelow 60 = Not suitable\n\nRecommendation must be one of:\n- Hire\n- Interview\n- Consider\n- Reject\n\nReturn ONLY JSON.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        448,
+        128
+      ],
+      "id": "37007f91-e456-4f9c-b5a7-3b9c7c77a534",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiOutput = $input.first().json.text;\n\n// Remove markdown if Gemini wraps JSON in ```json\nconst cleaned = aiOutput\n  .replace(/```json/g, \"\")\n  .replace(/```/g, \"\")\n  .trim();\n\nconst parsed = JSON.parse(cleaned);\n\nreturn [\n  {\n    json: parsed\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        128
+      ],
+      "id": "7626894b-a4c7-45d7-88b8-45ebd55ebbf3",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        528,
+        352
+      ],
+      "id": "2f2bd844-bc3e-4230-a4ed-ee524ff079c0",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "WrbY98auAVWVuuZ6",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d55352ad-17cf-420c-8be6-1e155b606dd4",
+              "leftValue": "={{ $json.score }}",
+              "rightValue": 70,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1024,
+        128
+      ],
+      "id": "74df635b-bc6b-4d67-ac3b-235e1fe21588",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "authentication": "airtableOAuth2Api",
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appILSYd8QpChg11h",
+          "mode": "list",
+          "cachedResultName": "AI Recruitment",
+          "cachedResultUrl": "https://airtable.com/appILSYd8QpChg11h"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tbljUsTNUoMq9mHJk",
+          "mode": "list",
+          "cachedResultName": "Canditates",
+          "cachedResultUrl": "https://airtable.com/appILSYd8QpChg11h/tbljUsTNUoMq9mHJk"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Experience": "={{ $('Code in JavaScript').item.json.experience_years }}",
+            "Score": "={{ $json.score }}",
+            "Name": "={{ $('Code in JavaScript').item.json.name }}",
+            "Email": "={{ $('Code in JavaScript').item.json.email }}",
+            "Phone": "={{ $('Code in JavaScript').item.json.phone }}",
+            "Position": "={{ $('On form submission').item.json['Job Position'] }}",
+            "Skills": "={{ $json.skills.join(', ') }}",
+            "Education": "={{ $json.education }}",
+            "Recommendation": "={{ $json.recommendation }}",
+            "Strengths": "={{ $json.strengths }}",
+            "Weaknesses": "={{ $json.weaknesses }}",
+            "Interview Questions": "={{ $json.interview_questions.join('\\n') }}",
+            "Status": "Shortlisted"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Position",
+              "displayName": "Position",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Skills",
+              "displayName": "Skills",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Experience",
+              "displayName": "Experience",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Education",
+              "displayName": "Education",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Score",
+              "displayName": "Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Recommendation",
+              "displayName": "Recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Strengths",
+              "displayName": "Strengths",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Weaknesses",
+              "displayName": "Weaknesses",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Interview Questions",
+              "displayName": "Interview Questions",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Shortlisted",
+                  "value": "Shortlisted"
+                },
+                {
+                  "name": "Rejected",
+                  "value": "Rejected"
+                },
+                {
+                  "name": "Interview Scheduled",
+                  "value": "Interview Scheduled"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1248,
+        32
+      ],
+      "id": "661ca72b-7bcf-40be-a811-5a8f07bbc30d",
+      "name": "Create a record",
+      "credentials": {
+        "airtableOAuth2Api": {
+          "id": "HTKgdkMecNpgMRig",
+          "name": "Airtable account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0BJC2TTW9Y",
+          "mode": "list",
+          "cachedResultName": "all-aymanamjad7"
+        },
+        "text": "=🎉 New Candidate Shortlisted\n\n👤 Name: {{ $('On form submission').item.json['Full Name'] }}\n\n📧 Email: {{ $('On form submission').item.json.Email }}\n\n💼 Position: {{ $('On form submission').item.json['Job Position'] }}\n\n⭐ Score:{{ $('Code in JavaScript').item.json.score }} /100\n\n🛠 Skills:\n{{ $('Code in JavaScript').item.json.skills }}\n\n📋 Recommendation:\n{{ $('Code in JavaScript').item.json.recommendation }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        1696,
+        32
+      ],
+      "id": "ac012a32-568b-4ea8-b676-5163ac62c0ad",
+      "name": "Notify HR Team",
+      "webhookId": "60148e2f-8dd8-404f-ac3f-022f5da06742",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "s8CVofIRhaIH2p2D",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('On form submission').item.json.Email }}",
+        "subject": "Interview Invitation",
+        "message": "=Hi {{ $('On form submission').item.json['Full Name'] }},\n\nThank you for applying for the {{ $('On form submission').item.json['Job Position']}}  position.\n\nWe reviewed your application and are pleased to invite you for an interview.\n\nOur HR team will contact you shortly with the interview details.\n\nBest regards,\n\nHR Team",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1472,
+        32
+      ],
+      "id": "15b9a104-f37d-4284-823d-25ec4052985d",
+      "name": "Send Interview Invitation",
+      "webhookId": "0f567395-3221-4e96-8b7a-f23724bd381f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "RTezo73wOPwIFqmL",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('On form submission').item.json.Email }}",
+        "subject": "Application Update",
+        "message": "=Hi {{ $json.name }}, \nThank you for applying for the {{ $('On form submission').item.json['Job Position'] }} position.\nWe appreciate the time you took to submit your application. \nAfter reviewing your resume, we have decided not to move forward with your application at this time.\nWe wish you success in your future career.\nBest regards,\nHR Team",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1472,
+        224
+      ],
+      "id": "22ee76ea-519c-44c9-a350-529526ead64d",
+      "name": "Rejection Email",
+      "webhookId": "10e0b7d2-af83-46ee-965e-80fb05de7369",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "RTezo73wOPwIFqmL",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "airtableOAuth2Api",
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appILSYd8QpChg11h",
+          "mode": "list",
+          "cachedResultName": "AI Recruitment",
+          "cachedResultUrl": "https://airtable.com/appILSYd8QpChg11h"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tbljUsTNUoMq9mHJk",
+          "mode": "list",
+          "cachedResultName": "Canditates",
+          "cachedResultUrl": "https://airtable.com/appILSYd8QpChg11h/tbljUsTNUoMq9mHJk"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $('On form submission').item.json['Full Name'] }}",
+            "Email": "={{ $('On form submission').item.json.Email }}",
+            "Position": "={{ $('On form submission').item.json['Job Position'] }}",
+            "Phone": "={{ $('Code in JavaScript').item.json.phone }}",
+            "Skills": "={{ $json.skills.join(', ') }}",
+            "Experience": "={{ $json.experience_years }}",
+            "Education": "={{ $json.education }}",
+            "Score": "={{ $json.score }}",
+            "Recommendation": "={{ $json.recommendation }}",
+            "Strengths": "={{ $json.strengths }}",
+            "Weaknesses": "={{ $json.weaknesses }}",
+            "Interview Questions": "={{ $json.interview_questions.join('\\n') }}",
+            "Status": "Rejected"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Position",
+              "displayName": "Position",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Skills",
+              "displayName": "Skills",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Experience",
+              "displayName": "Experience",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Education",
+              "displayName": "Education",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Score",
+              "displayName": "Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Recommendation",
+              "displayName": "Recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Strengths",
+              "displayName": "Strengths",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Weaknesses",
+              "displayName": "Weaknesses",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Interview Questions",
+              "displayName": "Interview Questions",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Shortlisted",
+                  "value": "Shortlisted"
+                },
+                {
+                  "name": "Rejected",
+                  "value": "Rejected"
+                },
+                {
+                  "name": "Interview Scheduled",
+                  "value": "Interview Scheduled"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1248,
+        224
+      ],
+      "id": "4c7273c6-be3a-4464-841c-222dc4c22811",
+      "name": "Create a record1",
+      "credentials": {
+        "airtableOAuth2Api": {
+          "id": "HTKgdkMecNpgMRig",
+          "name": "Airtable account 3"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Create a record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create a record1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a record": {
+      "main": [
+        [
+          {
+            "node": "Send Interview Invitation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Interview Invitation": {
+      "main": [
+        [
+          {
+            "node": "Notify HR Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a record1": {
+      "main": [
+        [
+          {
+            "node": "Rejection Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "7e441ee5-a2c3-4b09-9372-21b984fefd4b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4749ef1dff9dab97533d296fc60571d1f46847c4cabe69d94e1cae900f679a95"
+  },
+  "nodeGroups": [],
+  "id": "WgxzBvCv6TUki9zD",
+  "tags": []
+}
